@@ -1,4 +1,4 @@
-const TelegramBot = require('node-telegram-bot-api');
+const { Telegraf, Markup } = require('telegraf');
 require('dotenv').config();
 
 // Bot token from environment variable
@@ -9,7 +9,7 @@ if (!token) {
 }
 
 // Create bot instance
-const bot = new TelegramBot(token, { polling: true });
+const bot = new Telegraf(token);
 
 // Logging function
 const log = (type, message) => {
@@ -18,46 +18,34 @@ const log = (type, message) => {
 };
 
 // Handle /start command
-bot.onText(/\/start/, async (msg) => {
-    const chatId = msg.chat.id;
-    const gameName = 'corestore'; // Set this to your game's short name
+bot.start(async (ctx) => {
+    const gameUrl = 'https://guess-game-mu-snowy.vercel.app/'; 
 
-    const opts = {
-        reply_markup: {
-            inline_keyboard: [
-                [{
-                    text: 'Play This Game',
-                    callback_game: {}
-                }],
-                [{
-                    text: 'Help',
-                    callback_data: 'help'
-                }]
-            ]
-        }
-    };
+    
+
+   const opts = Markup.inlineKeyboard([
+        [
+            Markup.button.webApp('Play This Game', gameUrl), // WebApp button
+            Markup.button.callback('Help', 'help') // Callback button for help
+        ]
+        ])
 
     try {
-        await bot.sendGame(chatId, gameName, opts);
-        log('info', `Game sent to chat ${chatId}`);
+        await ctx.reply('Welcome! Click the button below to play the game.', opts);
+        log('info', `Game link sent to chat ${ctx.chat.id}`);
     } catch (error) {
-        log('error', `Failed to send game: ${error.message}`);
+        log('error', `Failed to send game link: ${error.message}`);
     }
 });
 
 // Handle callback queries
-bot.on('callback_query', async (query) => {
+bot.on('callback_query', async (ctx) => {
+    const query = ctx.callbackQuery;
+
     try {
         if (query.data === 'help') {
-            await bot.answerCallbackQuery(query.id, {
-                text: "Help message: How to play the game..."
-            });
+            await ctx.answerCbQuery("Help message: How to play the game...");
             log('info', `Help message sent to user ${query.from.id}`);
-        } else if (query.game_short_name === 'store') {
-            await bot.answerCallbackQuery(query.id, {
-                url:"http://t.me/coredappbot/storedapp"
-            });
-            log('info', `Game URL sent to user ${query.from.id}`);
         }
     } catch (error) {
         log('error', `Error handling callback query: ${error.message}`);
@@ -65,9 +53,10 @@ bot.on('callback_query', async (query) => {
 });
 
 // Error handling
-bot.on('polling_error', (error) => {
-    log('error', `Polling error: ${error.message}`);
+bot.catch((error, ctx) => {
+    log('error', `Error for ${ctx.updateType}: ${error.message}`);
 });
 
 // Start the bot
+bot.launch();
 log('info', 'Bot is starting...');
